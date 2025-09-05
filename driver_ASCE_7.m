@@ -16,9 +16,9 @@ fclose('all');
 % Assumptions:
 
 %% User Inputs (Think about changing this to a file read and command line execution)
-analysis.model_id = 26;
+analysis.model_id = 'm104v12';
 analysis.model_type = 3; % 1 = SDOF, 2 = MDOF (default), 3 = Archetype model
-analysis.proceedure = 'ELFP'; % LDP or NDP or test
+analysis.proceedure = 'MRSA'; % LDP or NDP or test
 analysis.id = '1'; % ID of the analysis for it to create its own directory
 
 %% Initial Setup
@@ -31,7 +31,7 @@ analysis.run_opensees = 1;
 analysis.run_eigen = 0;
 analysis.opensees_SP = 0;
 analysis.algorithm = 'KrylovNewton';
-analysis.joint_model = 0;
+analysis.joint_model = 0; % 0 = centerline (almost), 1 = ASCE 41 implicit model, 2 = joint 3D, 3 = rigid (via beam/columns)
 analysis.additional_elements = 0;
 analysis.nonlinear = 0;
 % analysis.nonlinear_type = 'lumped'; % lumped or fiber
@@ -45,11 +45,12 @@ analysis.write_xml = 1;
 
 %% Define Model and Run Eigen Analysis
 model_table = readtable(['inputs' filesep 'archetype_models.csv'],'ReadVariableNames',true);
-model = model_table(model_table.id == analysis.model_id,:);
+model = model_table(strcmp(model_table.id,analysis.model_id),:);
 
 % Create Analysis Directory
 analysis.out_dir = ['outputs' filesep model.name{1} filesep analysis.proceedure '_' analysis.id];
-fn_make_directory( analysis.out_dir )
+analysis.model_dir = [analysis.out_dir filesep 'model_data'];
+fn_make_directory( analysis.model_dir )
 
 % Build Model
 disp('Building Model ...')
@@ -58,10 +59,11 @@ main_build_model( model, analysis, [] )
 
 % Run Eigen Analysis
 analysis.nonlinear = 0;
-[ model ] = main_eigen_analysis( model, analysis );
+% [ model ] = main_eigen_analysis( model, analysis );
+[ eigen ] = main_eigen_analysis( analysis, analysis.model_dir );
 
 % Write period to design sheet
-xlswrite([model.design_sheet_dir{1} filesep model.design_sheet_name{1} '.xlsm'], model.T1_x, 'OpenseesOutput', 'C2')
+xlswrite([model.design_sheet_dir{1} filesep model.design_sheet_name{1}], eigen.periods(1), 'OpenseesOutput', 'C2')
 
 %% Test Load Cases
 % analysis.type_list =          [4]; % 1 = dynamic, 2 = pushover % 3 = static cyclic, 4 = static loads
@@ -78,9 +80,9 @@ xlswrite([model.design_sheet_dir{1} filesep model.design_sheet_name{1} '.xlsm'],
 % main_ASCE_7( analysis, load_case_id, model )
 
 %% Drift Load Cases
+analysis.run_drifts = 1; % Drift check
 analysis.type_list =          [4]; % 1 = dynamic, 2 = pushover % 3 = static cyclic, 4 = static loads
 analysis.nonlinear_list =     [0]; % 0 = linear, 1 = IMK Rotational Hinge, 2 = strain hardening hinges
-analysis.drift_run_list =     [1]; % run exceptions for ELFP drift cases
 analysis.dead_load_list =     [0]; % Dead load factor for linear analysis
 analysis.live_out_load_list = [0]; % Live load factor on outer bays for linear analysis
 analysis.live_in_load_list =  [0]; % Live load factor on inner bays for linear analysis
@@ -89,19 +91,19 @@ analysis.eq_vert_load_list =  [0]; % earthquake vertical load factor for linear 
 
 % Run the load case
 tic
-load_case_id = 'drift';
-main_ASCE_7( analysis, load_case_id, model )
+analysis.analysis_case = 'drift';
+main_ASCE_7( analysis, model, eigen )
 toc
 
 % Write Displacement and story shear data to design sheet
-asce_7_dir = [analysis.out_dir filesep load_case_id filesep 'asce_7_data'];
+asce_7_dir = [analysis.out_dir filesep analysis.analysis_case filesep 'asce_7_data'];
 load([asce_7_dir filesep 'story_analysis.mat'])
-xlswrite([model.design_sheet_dir{1} filesep model.design_sheet_name{1} '.xlsm'], story.max_disp_x', 'OpenseesOutput', 'C5')
+xlswrite([model.design_sheet_dir{1} filesep model.design_sheet_name{1}], story.max_disp_x', 'OpenseesOutput', 'C6')
 
 %% Primary Force Load Cases
+analysis.run_drifts = 0; % Force check
 analysis.type_list =          [4, 4, 4, 4, 4, 4, 4, 4]; % 1 = dynamic, 2 = pushover % 3 = static cyclic, 4 =  static loads
 analysis.nonlinear_list =     [0, 0, 0, 0, 0, 0, 0, 0]; % 0 = linear, 1 = IMK Rotational Hinge, 2 = strain hardening hinges
-analysis.drift_run_list =     [0, 0, 0, 0, 0, 0, 0, 0]; % run exceptions for ELFP drift cases
 analysis.dead_load_list =     [1.4, 1.2, 1.2, 1.2, 1.2,  0.9, 1.2,  0.9]; % Dead load factor for linear analysis
 analysis.live_out_load_list = [0,   1.6, 1.6, 0,   0.5,  0,   0.5,  0]; % Live load factor on outer bays for linear analysis
 analysis.live_in_load_list =  [0,   1.6, 0,   1.6, 0.5,  0,   0.5,  0]; % Live load factor on outer bays for linear analysis
@@ -110,12 +112,12 @@ analysis.eq_vert_load_list =  [0,   0,   0,   0,   0.2, -0.2, 0.2, -0.2]; % eart
 
 % Run the load case
 tic
-load_case_id = 'forces';
-main_ASCE_7( analysis, load_case_id, model )
+analysis.analysis_case = 'forces';
+main_ASCE_7( analysis, model, eigen )
 toc
 
 % Write Peak Bending Moments to Design Sheet
-asce_7_dir = [analysis.out_dir filesep load_case_id filesep 'asce_7_data'];
+asce_7_dir = [analysis.out_dir filesep analysis.analysis_case filesep 'asce_7_data'];
 load([asce_7_dir filesep 'element_analysis.mat'])
 load([asce_7_dir filesep 'story_analysis.mat'])
 bm_filt = strcmp(element.type,'beam');
@@ -123,18 +125,20 @@ col_filt = strcmp(element.type,'column');
 inner_col = element.inner_bay == 1;
 for s = 1:height(story)
     story_filt = element.story == s;
-    story.beam_pos_bending(s) = max(element.Mpos(bm_filt & story_filt));
-    story.beam_neg_bending(s) = max(element.Mneg(bm_filt & story_filt));
+    story.beam_pos_bending(s) = max(abs(element.Mpos(bm_filt & story_filt)));
+    story.beam_neg_bending(s) = max(abs(element.Mneg(bm_filt & story_filt)));
     story.ext_col_bending(s) = max(abs([element.Mpos(col_filt & story_filt & ~inner_col); element.Mneg(col_filt & story_filt & ~inner_col)]));
     story.int_col_bending(s) = max(abs([element.Mpos(col_filt & story_filt & inner_col); element.Mneg(col_filt & story_filt & inner_col)]));
 end
 
-write_data = [story.max_disp_x'; ...
+write_data = [cumsum(story.seismic_wt,'reverse')'; ...
+              story.story_shear'; ...
+              story.max_disp_x'; ...
               story.beam_pos_bending';...
               story.beam_neg_bending'; ...
               story.ext_col_bending'; ...
               story.int_col_bending'];
-xlswrite([model.design_sheet_dir{1} filesep model.design_sheet_name{1} '.xlsm'], write_data, 'OpenseesOutput', 'C6')
+xlswrite([model.design_sheet_dir{1} filesep model.design_sheet_name{1}], write_data, 'OpenseesOutput', 'C8')
 
 %% Overturning Load Case
 analysis.type_list =          [4, 4, 4, 4, 4, 4]; % 1 = dynamic, 2 = pushover % 3 = static cyclic, 4 =  static loads
@@ -148,26 +152,26 @@ analysis.eq_vert_load_list =  [0,   0,   0.2, -0.2,  0.2, -0.2]; % earthquake ve
     
 % Run the load case
 tic
-load_case_id = 'overturning';
-main_ASCE_7( analysis, load_case_id, model )
+analysis.analysis_case = 'overturning';
+main_ASCE_7( analysis, model, eigen )
 toc
 
 % Write Peak Bending Moments to Design Sheet
-asce_7_dir = [analysis.out_dir filesep load_case_id filesep 'asce_7_data'];
+asce_7_dir = [analysis.out_dir filesep analysis.analysis_case filesep 'asce_7_data'];
 load([asce_7_dir filesep 'element_analysis.mat'])
 load([asce_7_dir filesep 'story_analysis.mat'])
 col_filt = strcmp(element.type,'column');
 inner_col = element.inner_bay == 1;
 for s = 1:height(story)
     story_filt = element.story == s;
-    story.ext_col_max_axial(s) = max(element.Pmax(col_filt & story_filt & ~inner_col));
-    story.ext_col_min_axial(s) = min(element.Pmin(col_filt & story_filt & ~inner_col));
-    story.int_col_max_axial(s) = max(element.Pmax(col_filt & story_filt & inner_col));
-    story.int_col_min_axial(s) = min(element.Pmin(col_filt & story_filt & inner_col));
+    story.ext_col_max_axial(s) = max(abs(element.Pmax(col_filt & story_filt & ~inner_col)));
+    story.ext_col_min_axial(s) = max(abs(element.Pmin(col_filt & story_filt & ~inner_col)));
+    story.int_col_max_axial(s) = max(abs(element.Pmax(col_filt & story_filt & inner_col)));
+    story.int_col_min_axial(s) = max(abs(element.Pmin(col_filt & story_filt & inner_col)));
 end
 
 write_data = [story.ext_col_max_axial'; ...
               story.ext_col_min_axial';...
               story.int_col_max_axial'; ...
               story.int_col_min_axial'];
-xlswrite([model.design_sheet_dir{1} filesep model.design_sheet_name{1} '.xlsm'], write_data, 'OpenseesOutput', 'C11')
+xlswrite([model.design_sheet_dir{1} filesep model.design_sheet_name{1}], write_data, 'OpenseesOutput', 'C16')

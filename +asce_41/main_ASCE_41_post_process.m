@@ -17,9 +17,6 @@ import asce_41.*
 % Define Read and Write Directories
 read_dir = [analysis.out_dir filesep 'opensees_data'];
 write_dir = [analysis.out_dir filesep 'asce_41_data'];
-if ~exist(write_dir,'dir')
-    fn_make_directory( write_dir )
-end
 
 % Load Analysis Data
 load([read_dir filesep 'model_analysis.mat'])
@@ -30,7 +27,9 @@ load([read_dir filesep 'node_analysis.mat'])
 
 %% Calculate Element Properties and Modify Analysis Results based on ASCE 41-17
 % Basic building or analysis properties
-[ model, element, torsion, node ] = fn_basic_analysis_properties( model, story, element, node );
+if analysis.type ~= 4
+    [ model, element, torsion, node ] = fn_basic_analysis_properties( model, story, element, node );
+end
 
 % Filter Accelerations
 if analysis.type == 1 && analysis.filter_accel == 1
@@ -58,16 +57,20 @@ if analysis.asce_41_post_process
         [ element, joint ] = main_element_capacity( story, ele_prop_table, element, analysis, joint, read_dir, write_dir );
         [ element, joint ] = main_hinge_properties( ele_prop_table, element, joint );
     end
-end
 
-%% Save Data
-save([write_dir filesep 'model_analysis.mat'],'model')
-save([write_dir filesep 'story_analysis.mat'],'story')
-save([write_dir filesep 'element_analysis.mat'],'element')
-save([write_dir filesep 'joint_analysis.mat'],'joint')
-save([write_dir filesep 'node_analysis.mat'],'node')
-if exist('hinge','var')
-    save([write_dir filesep 'hinge_analysis.mat'],'hinge')
+
+    % Save Data
+    if ~exist(write_dir,'dir')
+        fn_make_directory( write_dir )
+    end
+    save([write_dir filesep 'model_analysis.mat'],'model')
+    save([write_dir filesep 'story_analysis.mat'],'story')
+    save([write_dir filesep 'element_analysis.mat'],'element')
+    save([write_dir filesep 'joint_analysis.mat'],'joint')
+    save([write_dir filesep 'node_analysis.mat'],'node')
+    if exist('hinge','var')
+        save([write_dir filesep 'hinge_analysis.mat'],'hinge')
+    end
 end
 
 % Save load case info

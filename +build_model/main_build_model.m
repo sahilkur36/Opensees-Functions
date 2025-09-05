@@ -20,8 +20,7 @@ import build_model.fn_build_sdof
 read_dir = ['inputs' filesep 'models' filesep model.name{1}];
 
 % Create Write Directory
-write_dir = [analysis.out_dir filesep 'model_data'];
-fn_make_directory( write_dir )
+write_dir = analysis.model_dir;
 
 %% Begin Method
 % Select Model Type

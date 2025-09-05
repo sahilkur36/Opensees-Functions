@@ -36,8 +36,16 @@ elseif strcmp(ele_type,'beam')
     ele_prim_end = story_props.(['bay_coor_' direction]){1}(start_bay + 1);
     ele_y_start = ele_y_end;
 elseif strcmp(ele_type,'wall')
-    element.trib_seismic_wt_1(ele_id,1) = 0;
-    element.trib_seismic_wt_2(ele_id,1) = 0;
+    if any(ismember(ele.Properties.VariableNames,'trib_seismic_wt_1'))
+        element.trib_seismic_wt_1(ele_id,1) = ele.trib_seismic_wt_1;
+    else
+        element.trib_seismic_wt_1(ele_id,1) = 0;
+    end
+    if any(ismember(ele.Properties.VariableNames,'trib_seismic_wt_2'))
+        element.trib_seismic_wt_2(ele_id,1) = ele.trib_seismic_wt_2;
+    else
+        element.trib_seismic_wt_2(ele_id,1) = 0;
+    end
     ele_prim_end = ele_prim_start;
 %     ele_prim_end = story_group.([direction '_start']) + story_props.(['bay_coor_' direction]){1}(start_bay + 1);
 end

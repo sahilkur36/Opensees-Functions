@@ -16,10 +16,10 @@ fclose('all');
 % Assumptions:
 
 %% User Inputs (Think about changing this to a file read and command line execution)
-% analysis.model_id = 2;
+analysis.model_id = 'm104v12';
 analysis.model_type = 3; % 1 = SDOF, 2 = MDOF (default), 3 = Archetype model
 analysis.proceedure = 'Pushover'; % LDP or NDP or test
-analysis.id = 'Dissertation_Study_LP'; % ID of the analysis for it to create its own directory
+analysis.id = 'ACI_2024_10_31'; % ID of the analysis for it to create its own directory
 analysis.summit = 0; % Write tcl files to be run on summit and change location of opensees call
 analysis.skip_2_outputs = 0; % Skip all the way to the plotters
 
@@ -45,22 +45,23 @@ remote_dir = ['G:\My Drive\Dissertation Archetype Study\Archetypes RCMF\Archetyp
 %% Pull Model Data
 % Define models to run
 model_data = readtable(['inputs' filesep 'archetype_models.csv'],'ReadVariableNames',true);
-model_data = model_data(model_data.num_stories > 4,:);
-model_data = model_data(model_data.ie == 1,:);
-model_data = model_data(model_data.design_drift == 0.02,:);
-num_models = height(model_data);
+if strcmp(analysis.model_id,'all')
+    models = model_data;
+else
+    models = model_data(ismember(model_data.id,analysis.model_id),:);
+end
 
 %% Initiate Analysis
 data = table;
-for m = 1:num_models % run for each model    
+for m = 1:height(models) % run for each model    
     % Load basic model data
-    model = model_data(m,:);
+    model = models(m,:);
     analysis.model_id = model.id;
-    fprintf('Running Model %i of %i: %s\n', m, num_models, model.name{1})
+    fprintf('Running Model %i of %i: %s\n', m, height(models), model.name{1})
     
     %% Run Pushover
     tic
-    main_ASCE_41( analysis )
+    main_ASCE_41( analysis, [] )
     toc
     
     %% Collect and save data

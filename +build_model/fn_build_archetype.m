@@ -8,11 +8,11 @@ import build_model.*
 import aci_318.*
 
 % Load data tables from design sheets
-story = readtable([model.design_sheet_dir{1} filesep model.design_sheet_name{1} '.xlsm'],'Sheet','story');
-story_group_table = readtable([model.design_sheet_dir{1} filesep model.design_sheet_name{1} '.xlsm'],'Sheet','story_group');
-element_group_table = readtable([model.design_sheet_dir{1} filesep model.design_sheet_name{1} '.xlsm'],'Sheet','element_group');
-element_table = readtable([model.design_sheet_dir{1} filesep model.design_sheet_name{1} '.xlsm'],'Sheet','element');
-additional_elements = readtable([model.design_sheet_dir{1} filesep model.design_sheet_name{1} '.xlsm'],'Sheet','additional_elements');
+story = readtable([model.design_sheet_dir{1} filesep model.design_sheet_name{1}],'Sheet','story');
+story_group_table = readtable([model.design_sheet_dir{1} filesep model.design_sheet_name{1}],'Sheet','story_group');
+element_group_table = readtable([model.design_sheet_dir{1} filesep model.design_sheet_name{1}],'Sheet','element_group');
+element_table = readtable([model.design_sheet_dir{1} filesep model.design_sheet_name{1}],'Sheet','element');
+additional_elements = readtable([model.design_sheet_dir{1} filesep model.design_sheet_name{1}],'Sheet','additional_elements');
 
 % Story property calculations
 for s = 1:height(story)
@@ -338,6 +338,16 @@ if analysis.nonlinear == 1 && strcmp(analysis.nonlinear_type,'lumped')
             element.(['critical_mode_' num2str(j)]){i,1} = element_table.critical_mode{ele_filt};
         end
     end
+else
+    for i = 1:length(element.id) % Add additional elastic properties
+        ele_filt = element_table.id == element.ele_id(i);
+        element.e(i,1) = element_table.e(ele_filt);
+        element.a(i,1) = element_table.a(ele_filt);
+        element.w(i,1) = element_table.w(ele_filt);
+        element.h(i,1) = element_table.h(ele_filt);
+        element.fc_n(i,1) = element_table.fc_n(ele_filt);
+        element.iz(i,1) = element_table.iz_model(ele_filt);
+    end
 end
 
 %% Calculate Total Element Gravity Loads
@@ -449,6 +459,7 @@ hinge = struct2table(hinge);
 % end
 
 %% Reformat outputs to table and write CSV's
+writetable(model,[write_dir filesep 'model.csv'])
 writetable(story,[write_dir filesep 'story.csv'])
 writetable(node,[write_dir filesep 'node.csv'])
 writetable(element,[write_dir filesep 'element.csv'])

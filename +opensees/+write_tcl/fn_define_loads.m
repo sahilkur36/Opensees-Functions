@@ -1,16 +1,8 @@
-function [ ] = fn_define_loads( write_dir, analysis, node, dimension, story, element, joint, ground_motion, model )
+function [ model ] = fn_define_loads( write_dir, analysis, node, dimension, story, element, joint, ground_motion, model )
 %UNTITLED8 Summary of this function goes here
 %   Detailed explanation goes here
 
 %% Initial Setup 
-% Import Packages
-import asce_7.*
-
-% Define site hazard design values (pass into function instead)
-site.S1 = 0.9/1.4; %fv from curts site assuming site class C
-site.Sds = 1;
-site.Sd1 = 0.6;
-
 % Write Loads File
 file_name = [write_dir filesep 'loads.tcl'];
 fileID = fopen(file_name,'w');
@@ -92,15 +84,12 @@ fprintf(fileID,'loadConst -time 0.0 \n');
 
 %% Static Lateral Loading
 if analysis.type == 2 || analysis.type == 3 || analysis.type == 4
-    % equivalent lateral force vertical distribution
-    w = story.seismic_wt;
-    h = story.story_ht + story.y_start;
-    if ~isfield(analysis,'run_drifts')
-        analysis.run_drifts = 0; %default not to run if it hasn't been defined
+    % Define lateral load fo modal response spectrum analysis
+    if strcmp(analysis.proceedure,'MRSA')
+        story.lateral_force = story.(['lateral_force_' num2str(analysis.mode2run)]);
     end
-    [ ~, ~, story.lateral_force, ~ ] = fn_equivalent_lateral_force( w, h, model.T1_x, site.S1, site.Sds, site.Sd1, model.ie, analysis.run_drifts );
     
-    % define nodes to push
+    % Define nodes to push
     force_nodes = [];
     node.lateral_load = zeros(height(node),1);
     for s = 1:height(story)

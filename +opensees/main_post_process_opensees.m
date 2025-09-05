@@ -40,9 +40,9 @@ if ~analysis.simple_recorders
         % Force Time Histories
         if analysis.type == 1 % dynamic analysis
             ele_force_TH = fn_xml_read([opensees_dir filesep 'element_force_' num2str(i) '.xml']);
-            if analysis.nonlinear ~= 0 && strcmp(analysis.nonlinear_type,'fiber')
+%             if analysis.nonlinear ~= 0 && strcmp(analysis.nonlinear_type,'fiber')
                 ele_deform_TH = fn_xml_read([opensees_dir filesep 'element_deform_' num2str(i) '.xml']);
-            end
+%             end
         elseif analysis.type == 2 || analysis.type == 3 % pushover or cyclic analysis
             if strcmp(element.direction{i},'x')
                 ele_force_TH_pos = fn_xml_read([opensees_dir filesep 'element_force_x_' num2str(i) '.xml']);
@@ -72,6 +72,7 @@ if ~analysis.simple_recorders
             end
         elseif analysis.type == 4 % static lateral loads
             ele_force_TH = fn_xml_read([opensees_dir filesep 'element_force_x_' num2str(i) '.xml']);
+            ele_deform_TH = fn_xml_read([opensees_dir filesep 'element_deform_x_' num2str(i) '.xml']);
         end
         for j = 1:length(comp_names)
             if analysis.type == 4
@@ -86,8 +87,13 @@ if ~analysis.simple_recorders
                 end
             end
         end
+        if analysis.type == 4
+            ele_deform = ele_deform_TH(end,3); % assumes rotation demamd is the third column
+        else
         if analysis.nonlinear ~= 0 && strcmp(analysis.nonlinear_type,'fiber')
-            element_TH.(['ele_' num2str(element.id(i))]).rot = ele_deform_TH(1:(end-clip),4)'; % assumes rotation demamd is the fourth column
+            element_TH.(['ele_' num2str(element.id(i))]).rot_1 = ele_deform_TH(1:(end-clip),3)'; % assumes rotation demamd is the third column
+            element_TH.(['ele_' num2str(element.id(i))]).rot_2 = ele_deform_TH(1:(end-clip),4)'; % assumes rotation demamd is the forth column
+        end
         end
 
         % Max Force for each element
@@ -107,6 +113,9 @@ if ~analysis.simple_recorders
                 element.Mpos(i) = max([ele_force.M_TH_1,ele_force.M_TH_2,0]);
                 element.Mneg(i) = min([ele_force.M_TH_1,ele_force.M_TH_2,0]);
             end
+            
+            % Deformation demand
+            element.max_rot(i) = abs(ele_deform);
         else
             element.P_grav(i) = abs(element_TH.(['ele_' num2str(element.id(i))]).P_TH(1));
             element.Pmax(i) = max(abs(element_TH.(['ele_' num2str(element.id(i))]).P_TH));
@@ -117,6 +126,7 @@ if ~analysis.simple_recorders
             element.Mmax_2(i) = max(abs(element_TH.(['ele_' num2str(element.id(i))]).M_TH_2));
             element.Mgrav_1(i) = abs(element_TH.(['ele_' num2str(element.id(i))]).M_TH_1(1));
             element.Mgrav_2(i) = abs(element_TH.(['ele_' num2str(element.id(i))]).M_TH_2(1));
+%             element.max_rot(i) = max(abs(element_TH.(['ele_' num2str(element.id(i))]).rot_1));
         end
 
         if strcmp(model.dimension,'3D')

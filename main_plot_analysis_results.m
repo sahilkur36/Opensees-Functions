@@ -1,4 +1,4 @@
-function [ ] = main_plot_analysis_results( model, analysis, ele_prop_table )
+function [ ] = main_plot_analysis_results( analysis, ele_prop_table )
 % Description: Main script that compiles interesting results and creates
 % visuals.
 
@@ -16,6 +16,9 @@ function [ ] = main_plot_analysis_results( model, analysis, ele_prop_table )
 % Import Packages
 import plotting_tools.*
 import asce_41.*
+
+% Load general model data
+model = readtable([analysis.model_dir filesep 'model.csv']);
 
 % Define Read and Write Directories
 read_dir = [analysis.out_dir filesep 'asce_41_data'];
@@ -37,7 +40,7 @@ if exist(read_dir,'dir')
     if exist([read_dir filesep 'hinge_analysis.mat'],'file')
         load([read_dir filesep 'hinge_analysis.mat'])
     end
-else
+elseif exist(read_dir_opensees,'dir')
     load([read_dir_opensees filesep 'story_analysis.mat'])
 end
 

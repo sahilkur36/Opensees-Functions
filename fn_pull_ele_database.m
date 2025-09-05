@@ -1,14 +1,18 @@
-function [] = fn_pull_ele_database(model, analysis, ele_props_table)
+function [] = fn_pull_ele_database(analysis, ele_props_table)
 % Script to pull info from ATC 134 run and format into element collection
 % database
+
+
+%% Import Packages
+import asce_41.*
+
+% Load general model data
+model = readtable([analysis.model_dir filesep 'model.csv']);
 
 %% Define data directories
 analysis_dir = ['outputs' filesep model.name{1} filesep analysis.proceedure '_' analysis.id filesep 'asce_41_data'];
 opensees_dir = ['outputs' filesep model.name{1} filesep analysis.proceedure '_' analysis.id filesep 'opensees_data'];
 write_dir = ['outputs' filesep model.name{1} filesep analysis.proceedure '_' analysis.id filesep 'element_data'];
-
-%% Import Packages
-import asce_41.*
 
 %% Load Inputs
 ele_inputs = readtable('element_collection_key_story_1.csv','ReadVariableNames',true);

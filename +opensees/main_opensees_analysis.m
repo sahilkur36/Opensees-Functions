@@ -1,4 +1,4 @@
-function [ ] = main_opensees_analysis( model, analysis )
+function [ ] = main_opensees_analysis( analysis )
 %UNTITLED5 Summary of this function goes here
 %   Detailed explanation goes here
 
@@ -8,12 +8,13 @@ import opensees.*
 import asce_41.*
 import asce_7.*
 
-% Define site hazard design values (pass into function instead)
-site.Sds = 1;
-
 % Create Write Directory
 % TCL or Opensees does not like filesep command on windows, therefore must manually define forward slash seperators
-write_dir_opensees = [strrep(analysis.out_dir,'\','/') '/opensees_data']; 
+if strcmp(analysis.proceedure,'MRSA')
+    write_dir_opensees = [strrep(analysis.out_dir,'\','/') '/MRSA/' analysis.case '/mode_' num2str(analysis.mode2run) '/opensees_data']; 
+else
+    write_dir_opensees = [strrep(analysis.out_dir,'\','/') '/opensees_data']; 
+end
 if analysis.run_opensees % Don't clear the file if you don't want to run opensees
     fn_make_directory( write_dir_opensees )
 end
@@ -26,11 +27,17 @@ end
 read_dir_analysis = [analysis.out_dir filesep 'asce_41_data'];
 
 % Load Model Data
+model = readtable([analysis.model_dir filesep 'model.csv'],'ReadVariableNames',true);
 node = readtable([analysis.model_dir filesep 'node.csv'],'ReadVariableNames',true);
 element = readtable([analysis.model_dir filesep 'element.csv'],'ReadVariableNames',true);
 story = readtable([analysis.model_dir filesep 'story.csv'],'ReadVariableNames',true);
 joint = readtable([analysis.model_dir filesep 'joint.csv'],'ReadVariableNames',true);
 hinge = readtable([analysis.model_dir filesep 'hinge.csv'],'ReadVariableNames',true);
+if analysis.model_type == 3
+    ele_props_table = readtable([analysis.model_dir filesep 'element_table.csv'],'ReadVariableNames',true);
+else
+    ele_props_table = [];
+end
 
 % Define element hinge properties if not already defined
 if analysis.nonlinear ~= 0 && analysis.model_type == 2 && ~exist([read_dir_analysis filesep 'element_analysis.mat'],'file')
@@ -46,7 +53,7 @@ if analysis.nonlinear ~= 0 && analysis.model_type == 2 && ~exist([read_dir_analy
 end
 
 %% Factor Loads
-[ element ] = fn_factor_loads( analysis, element, site );
+[ element ] = fn_factor_loads( analysis, element, model.sds );
 
 %% Run Opensees
 % Define Number of Opensees runs to be performed
@@ -98,7 +105,7 @@ for i = 1:num_OS_runs
     
     if analysis.run_opensees
         % Write TCL files
-        main_write_tcl( model.dimension, write_dir_opensees, node, element, story, joint, hinge, analysis, read_dir_analysis, ground_motion, model );
+        main_write_tcl( model.dimension, write_dir_opensees, node, element, story, joint, hinge, analysis, read_dir_analysis, ground_motion, model, ele_props_table );
         
         % Run Opensees
         fprintf('Running Opensees Analysis %i of %i \n',i,num_OS_runs)

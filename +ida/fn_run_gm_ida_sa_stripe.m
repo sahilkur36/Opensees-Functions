@@ -11,6 +11,9 @@ for i = 1:length(analysis.sa_stripes)
     ground_motion.x = gms2run(gm_idx,:);
     ground_motion.x.eq_dir = {['ground_motions' '/' analysis.gm_set '/' ground_motion.x.eq_name{1}]};
     ground_motion.x.eq_name = {[ground_motion.x.eq_name{1} '.tcl']};
+    spectra_table = readtable([ground_motion.x.eq_dir{1} filesep 'spectra.csv'],'ReadVariableNames',true);
+    sa_gm_x = interp1(spectra_table.period,spectra_table.psa_5,ida_results.period(1));
+    
     if analysis.run_z_motion
         ground_motion.z = gm_set_table(gm_set_table.set_id == ground_motion.x.set_id & gm_set_table.pair ~= ground_motion.x.pair,:);
         ground_motion.z.eq_dir = {['ground_motions' '/' analysis.gm_set '/' ground_motion.z.eq_name{1}]};
@@ -28,6 +31,7 @@ for i = 1:length(analysis.sa_stripes)
         sa_gm_geomean = sqrt(sa_gm_x*sa_gm_z);
         scale_factor = analysis.sa_stripes(i) / sa_gm_geomean;
     elseif strcmp(analysis.scale_method,'maxdir')
+%         error('THIS IS THE WRONG WAY TO DO MAX DIRECTION (close but wrong): Update to precalc RotD100 spectra for all gm pairs')
         sa_gm_maxdir = max(sa_gm_x,sa_gm_z);
         scale_factor = analysis.sa_stripes(i) / sa_gm_maxdir;
     elseif strcmp(analysis.scale_method,'2D')

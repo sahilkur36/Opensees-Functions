@@ -10,11 +10,15 @@ model.DCR_raw_max = 4; % Set to middle of interp if not already defined (ie crea
 element.DCR_raw_max_V = model.DCR_raw_max*ones(height(element),1);
 
 % Torsion effect
-torsion.x = story.torsional_factor_x;
-if sum(strcmp('torsional_factor_z',story.Properties.VariableNames)) > 0
-    torsion.z = story.torsional_factor_z;
+if strcmp(model.dimension,'3D')
+    torsion.x = story.torsional_factor_x;
+    if sum(strcmp('torsional_factor_z',story.Properties.VariableNames)) > 0
+        torsion.z = story.torsional_factor_z;
+    else
+        torsion.z = story.torsional_factor_x;
+    end
 else
-    torsion.z = story.torsional_factor_x;
+    torsion = [];
 end
 
 for s = 1:height(story)

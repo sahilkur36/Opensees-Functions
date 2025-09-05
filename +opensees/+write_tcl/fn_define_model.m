@@ -6,9 +6,7 @@ import asce_41.*
 import build_model.fn_node_exist
 
 %% Load element properties table
-% if analysis.model_type ~= 3
-% %     ele_props_table = readtable([model.design_sheet_dir{1} filesep model.design_sheet_name{1} '.xlsm'],'Sheet','element'); % for archetype models, the model properties are already in the table
-if analysis.model_type ~= 3
+if analysis.model_type ~= 3 % for non archetype models, load the generic element data
     ele_props_table = readtable(['inputs' filesep 'element.csv'],'ReadVariableNames',true);
 end
 
@@ -56,7 +54,11 @@ if prcnt_chng > 0.01
 end
 for i = 1:length(node.id)
     if strcmp(dimension,'2D')
-        fprintf(fileID,'mass %i %f %f 0. \n',node.id(i), new_mass(i), new_mass(i));
+        if isfield(analysis,'horizontal_mass_only') && analysis.horizontal_mass_only
+            fprintf(fileID,'mass %i %f 0. 0. \n',node.id(i), new_mass(i));
+        else
+            fprintf(fileID,'mass %i %f %f 0. \n',node.id(i), new_mass(i), new_mass(i));
+        end
     elseif strcmp(dimension,'3D')
         fprintf(fileID,'mass %i %f %f %f 0. 0. 0. \n',node.id(i), new_mass(i), new_mass(i), new_mass(i));
     end

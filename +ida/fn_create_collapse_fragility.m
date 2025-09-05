@@ -28,14 +28,15 @@ for gm = 1:height(gm_set_table)
                 ida.eq_name{id,1} = gm_set_table.eq_name{gm};
 
                 % X direction
-                ida.sa_x(id,1) = summary.sa_x;
-                ida.mce_ratio_x(id,1) = ida.sa_x(id,1)/ida_results.mce(1);
+                ida.sa_x(id,1) = str2double(strrep(strrep(sa_folders(s).name,'Sa_',''),'_','.'));
+%                 ida.sa_x(id,1) = summary.sa_x;
+%                 ida.mce_ratio_x(id,1) = ida.sa_x(id,1)/ida_results.mce(1);
                 ida.drift_x(id,1) = summary.max_drift_x;
 
                 % z direction 
                 if analysis.run_z_motion
                     ida.sa_z(id,1) = summary.sa_z;
-                    ida.mce_ratio_z(id,1) = ida.sa_z(id,1)/ida_results.mce(2);
+%                     ida.mce_ratio_z(id,1) = ida.sa_z(id,1)/ida_results.mce(2);
                     ida.drift_z(id,1) = summary.max_drift_z;
                 end
 
@@ -48,6 +49,12 @@ for gm = 1:height(gm_set_table)
 
                 % Collapse metrics
                 ida.collapse(id,1) = summary.collapse;
+                
+%                 %TMP early drift crop
+%                 if summary.max_drift_x >= 0.06
+%                     ida.collapse(id,1) = 1;
+%                 end
+                
                 if summary.collapse > 0
                     ida.collapse_direction{id,1} = summary.collapse_direction;
                     ida.collapse_mech{id,1} = summary.collaspe_mech;
@@ -95,23 +102,24 @@ ida_table(ida_table.collapse == 5,:) = []; % filter out failed models
 num_gms = [];
 num_collapse = [];
 prob_col = [];
-for sa = 1:length(analysis.sa_stripes)
-    filt_sa = round(ida_table.sa_x,3) == round(analysis.sa_stripes(sa),3);
+sa_vec = unique(ida_table.sa_x);
+for sa = 1:length(sa_vec)
+    filt_sa = ida_table.sa_x == sa_vec(sa);
     num_gms(sa) = sum(filt_sa);
     num_collapse(sa) = sum(ida_table.collapse(filt_sa));
     prob_col(sa) = mean(ida_table.collapse(filt_sa));
 end
 
 % Fit lognormal distribution
-[theta, beta] = fn_mle_pc(analysis.sa_stripes, num_gms, num_collapse);
+[theta, beta] = fn_mle_pc(sa_vec', num_gms, num_collapse);
 
-% Find probability of Collapse at MCE and DBE
-mu = log(theta);
-p_col_mce = logncdf(ida_results.mce,mu,beta);
-p_col_dbe = logncdf((2/3)*ida_results.mce,mu,beta);
+% % Find probability of Collapse at MCE and DBE
+% mu = log(theta);
+% p_col_mce = logncdf(ida_results.mce,mu,beta);
+% p_col_dbe = logncdf((2/3)*ida_results.mce,mu,beta);
 
 % Find pushover ductility
-pushover = readtable([pushover_dir filesep 'pushover_data.csv']);
+% pushover = readtable([pushover_dir filesep 'pushover_data.csv']);
 
 % Adjust for P-695 values
 ssf_table = readtable(['+ida' filesep 'p695_ssf_factor_sdc_d.csv']);
@@ -122,17 +130,23 @@ else
 end
 ssf_table_filt = ssf_table{end,2:end};
 mu_t_list = [1.0 1.1 1.5 2 3 4 6 8];
-mu_t_bounded = max(min(pushover.mu_t,max(mu_t_list)),min(mu_t_list));
+% mu_t_bounded = max(min(pushover.mu_t,max(mu_t_list)),min(mu_t_list));
+mu_t_bounded = 8; % Assume equal to R factor
 SSF = interp1(mu_t_list, ssf_table_filt, mu_t_bounded);
-cmr = theta / ida_results.mce;
-acmr = factor_3D * SSF * cmr;
-adjusted_med_sa = acmr * ida_results.mce;
+% cmr = theta / ida_results.mce;
+% acmr = factor_3D * SSF * cmr;
+adjusted_med_sa = factor_3D * SSF * theta;
 
 % Find probability of Collapse at MCE and DBE
 mu = log(adjusted_med_sa);
 beta_new = 0.6;
-p_col_mce_adj = logncdf(ida_results.mce,mu,beta_new);
-p_col_dbe_adj = logncdf((2/3)*ida_results.mce,mu,beta_new);
+if isfield(ida_results,'mce')
+    p_col_mce_adj = logncdf(ida_results.mce,mu,beta_new);
+    p_col_dbe_adj = logncdf((2/3)*ida_results.mce,mu,beta_new);
+else
+    p_col_mce_adj = [];
+    p_col_dbe_adj = [];
+end
 
 %% Collapse Mechanism histogram
 collapse_mech_list = ida_table.collapse_mech(~strcmp(ida_table.collapse_mech,'NA'));
@@ -144,5 +158,15 @@ plt_name = 'collapse_mech';
 savefig([write_dir filesep plt_name '.fig'])
 saveas(gcf,[write_dir filesep plt_name],'png')
 close
+
+% Quick plot of raw and adjusted collape fragility
+x_vals = 0.01:0.01:2;
+cdf_raw = logncdf(x_vals,log(theta),beta);
+cdf_adj = logncdf(x_vals,log(adjusted_med_sa),beta);
+
+hold on
+plot(x_vals,cdf_raw)
+plot(x_vals,cdf_adj)
+
 
 end

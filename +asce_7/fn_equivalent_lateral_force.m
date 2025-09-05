@@ -1,48 +1,23 @@
-function [ V, Cs, Fx, Cvx ] = fn_equivalent_lateral_force( w, h, T_elastic, S1, Sds, Sd1, Ie, run_drifts )
+function [ V, Cs, Fx, Cvx, CuTa ] = fn_equivalent_lateral_force( lat_sys, w, h, T_elastic, S1, Sds, Sd1, R, Ie, run_drifts )
 % Equvalent Lateral Force Method as outlined in ASCE 7-16
 
 %% Assumptions
 % 1) T-long = 8 sec
-% 2) Use Ta for period
-% 3) Assume concrete moment frame
-% 4) Assume modern site parameters for Imperial Valley
-% 5) Importance factor = 1
+% 2) Use Ta for period for forces
+% 3) Only applicable to concrete frames and walls currently
 
-%% Site Parameters
-% ICSB
-% S1 = 0.667;
-% Sds = 1.21;
-% Sd1 = 0.667;
-
-%% Concrete Moment Frame Properties (remove later to be more general)
-% ICSB
-% R = 5; % assume IMF
-% Ie = 1.0;
-% Ct = 0.016; % table 12.8-2
-% x = 0.9; % table 12.8-2
-% hn = max(h);
+%% Intial Parameters
+% Import Packages
+import asce_7.fn_CuTa
 
 % Fixed Assumptions
 T_L = 8;
 
-% RC Frame Archetypes
-R = 8; % assume IMF
-% Ie = 1.0;
-Ct = 0.016; % table 12.8-2
-x = 0.9; % table 12.8-2
-hn = max(h)/12;
-
 %% Period Properties
+[ CuTa ] = fn_CuTa( lat_sys, Sds, h );
 if run_drifts
     T = T_elastic;
 else
-    % Coefficient for upper limit on calculated period
-    % table 12.8-1
-    Cu = interp1([0.1, 0.15, 0.2, 0.3],...
-                 [1.7,1.6,1.5,1.4],...
-                 min(max(Sds,0.1),0.3));
-    Ta = Ct*hn^x;
-    CuTa = Cu*Ta;
     T = min(T_elastic,CuTa);
 end
 
@@ -57,14 +32,14 @@ end
 
 Cs = min(Cs_short,Cs_T); % Cs need not exceed Cs_T
 
-% eq 12.8-5
+% eq 12.8-6 ASCE 7-22
 if run_drifts
-    cs_min_1 = 0; % not requred for drift assessment
+    cs_min_1 = 0; % not requred for drift assessment 
 else
     cs_min_1 = max([0.044*Sds*Ie, 0.01]); 
 end  
 
-% eq 12.8-6
+% eq 12.8-7 ASCE 7-22
 if S1 >= 0.6
     cs_min_2 = 0.5*S1/(R/Ie);
 else

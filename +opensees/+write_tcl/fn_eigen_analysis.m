@@ -1,4 +1,4 @@
-function [ ] = fn_eigen_analysis( write_dir, prim_story_nodes, num_stories, analysis, dims )
+function [ num_modes ] = fn_eigen_analysis( write_dir, prim_story_nodes, num_stories, analysis, dims )
 %UNTITLED Summary of this function goes here
 %   Detailed explanation goes here
 
@@ -28,7 +28,7 @@ else
     end
 end
 
-% Eigen analysis - 10.4 from "Dynamics of Structures" book by Anil Chopra - using equalDOF and very high Ib
+% Eigen analysis - 10.4 from "Dynamics of Structures" book by Anil Chopra
 fprintf(fileID,'wipeAnalysis \n');		
 
 % Record eigenvectors

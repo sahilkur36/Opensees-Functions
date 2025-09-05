@@ -13,7 +13,11 @@ function [ ] = fn_combine_load_cases( analysis, load_case_id )
 
 %% Initial Setup
 % Define Read and Write Directories
-read_dir = [analysis.out_dir filesep 'opensees_data'];
+if strcmp(analysis.proceedure,'MRSA')
+    read_dir = [analysis.out_dir filesep 'MRSA' filesep analysis.case];
+else
+    read_dir = [analysis.out_dir filesep 'opensees_data'];
+end
 write_dir = [analysis.out_dir filesep 'asce_7_data'];
 if ~exist(write_dir,'dir')
     fn_make_directory( write_dir )
@@ -33,6 +37,8 @@ load([read_dir filesep 'element_analysis.mat'])
 % story.drift = abs(disp(2:end) - disp(1:(end-1))) ./ story.story_ht;
 
 %% Combine demands from various load cases
+% Looks like I am not saving each specific load case here, just overwriting
+% each run, and only saving the combined envelope
 if load_case_id == 1 % this is the first load case, just save the data
     save([write_dir filesep 'story_analysis.mat'],'story')
     save([write_dir filesep 'element_analysis.mat'],'element')
@@ -42,11 +48,15 @@ else % combine with previously run load cases
     element_combo = load([write_dir filesep 'element_analysis.mat']);
 
     % Merge element demands from most recent load case
-    element.Pmax = max(element_combo.element.Pmax,element.Pmax);
-    element.Pmin = min(element_combo.element.Pmin,element.Pmin);
+    element.Pmax = max(abs([element_combo.element.Pmax,element.Pmax]),[],2);
+    element.Pmin = max(abs([element_combo.element.Pmin,element.Pmin]),[],2);
     element.V = max(element_combo.element.V,element.V);
-    element.Mpos = max(element_combo.element.Mpos,element.Mpos);
-    element.Mneg = min(element_combo.element.Mneg,element.Mneg);
+%     story_filt = element.story == 2;
+%     bm_filt = strcmp(element.type,'beam');
+%     element_combo.element.Mpos(story_filt & bm_filt)
+%     element.Mpos(story_filt & bm_filt)
+    element.Mpos = max(abs([element_combo.element.Mpos,element.Mpos]),[],2);
+    element.Mneg = max(abs([element_combo.element.Mneg,element.Mneg]),[],2);
 
     % Merge story drift demands
     story.ave_disp_x = max(story_combo.story.ave_disp_x,story.ave_disp_x);

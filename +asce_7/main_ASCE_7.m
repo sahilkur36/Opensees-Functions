@@ -1,4 +1,4 @@
-function [ ] = main_ASCE_7( analysis, load_case_id, model )
+function [ ] = main_ASCE_7( analysis, model, eigen )
 % Description: Main script facilitating an ASCE 41 teir 3 assessment. 
 
 % Created By: Dustin Cook
@@ -13,27 +13,36 @@ function [ ] = main_ASCE_7( analysis, load_case_id, model )
 %% Initial Setup
 import opensees.main_opensees_analysis
 import asce_7.fn_combine_load_cases
+import asce_41.fn_define_static_loading
+import asce_7.fn_run_MRSA
 
 % Create Analysis Directory
 analysis.model_dir = ['outputs' filesep model.name{1} filesep analysis.proceedure '_' analysis.id filesep 'model_data'];
-analysis.out_dir = ['outputs' filesep model.name{1} filesep analysis.proceedure '_' analysis.id filesep load_case_id];
+analysis.out_dir = ['outputs' filesep model.name{1} filesep analysis.proceedure '_' analysis.id filesep analysis.analysis_case];
 fn_make_directory( analysis.out_dir )
+
+%% Define static lateral loading
+fn_define_static_loading( analysis, eigen )
 
 %% Run each load combo
 for i = 1:length(analysis.type_list)
     analysis.type = analysis.type_list(i);
     analysis.nonlinear = analysis.nonlinear_list(i);
-    analysis.run_drifts = analysis.drift_run_list(i);
     analysis.dead_load = analysis.dead_load_list(i);
     analysis.live_out_load = analysis.live_out_load_list(i);
     analysis.live_in_load = analysis.live_in_load_list(i);
     analysis.eq_lat_load_factor = analysis.eq_lat_load_list(i);
     analysis.eq_vert_load_factor = analysis.eq_vert_load_list(i);
+    analysis.case = ['load_case_' num2str(i)];
     disp(['Running ' analysis.proceedure ' step ' num2str(i) ' of ' num2str(length(analysis.type_list)) ' ...'])
 
     % Run and Postprocess Opensees Analysis
-    disp('Running Opensees ...')
-    main_opensees_analysis( model, analysis )
+    if strcmp(analysis.proceedure,'MRSA') % linear dynamic analysis per ASCE 7
+        fn_run_MRSA( analysis )
+    else
+        disp('Running Opensees ...')
+        main_opensees_analysis( analysis )
+    end
 
     % Combine Load cases
     disp('Combing load cases ...')
